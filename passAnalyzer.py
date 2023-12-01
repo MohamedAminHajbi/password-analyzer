@@ -35,16 +35,22 @@ def calculate_crack_time(entropy):
     # Calculate an estimate of the time to crack based on the password entropy
     # This is a rough estimation and can vary based on attacker's methods and resources
     seconds_to_crack = 2 ** entropy
-    days_to_crack = seconds_to_crack / (24 * 3600)
-    hours_to_crack = (seconds_to_crack % (24 * 3600)) / 3600
-    minutes_to_crack = (seconds_to_crack % 3600) / 60
-    seconds_remainder = seconds_to_crack % 60
+    minutes_to_crack = seconds_to_crack / 60
+    hours_to_crack = minutes_to_crack / 60
+    days_to_crack = hours_to_crack / 24
+    years_to_crack = days_to_crack / 365
+
+    # Extract remaining seconds after converting larger units
+    remaining_seconds = seconds_to_crack % 60
+    remaining_minutes = minutes_to_crack % 60
+    remaining_hours = hours_to_crack % 24
 
     return (
-        f"{int(days_to_crack)} days, "
-        f"{int(hours_to_crack)} hours, "
-        f"{int(minutes_to_crack)} minutes, "
-        f"{int(seconds_remainder)} seconds"
+        f"{int(years_to_crack)} years, "
+        f"{int(days_to_crack % 365)} days, "
+        f"{int(remaining_hours)} hours, "
+        f"{int(remaining_minutes)} minutes, "
+        f"{int(remaining_seconds)} seconds"
     )
 
 def check_pwd():
