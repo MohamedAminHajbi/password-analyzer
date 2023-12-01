@@ -1,6 +1,9 @@
 import string
 import getpass
 import random
+import math
+import tkinter as tk
+from tkinter import ttk
 
 def generate_suggested_password():
     # Define character sets for password generation
@@ -20,8 +23,32 @@ def generate_suggested_password():
 
     return suggested_password
 
+def calculate_entropy(password):
+    # Calculate entropy based on the number of possible characters and the length of the password
+    possible_characters = 0
+    for char_set in [string.ascii_lowercase, string.ascii_uppercase, string.digits, string.punctuation]:
+        possible_characters += len(set(password) & set(char_set))
+    entropy = math.log2(possible_characters) * len(password)
+    return entropy
+
+def calculate_crack_time(entropy):
+    # Calculate an estimate of the time to crack based on the password entropy
+    # This is a rough estimation and can vary based on attacker's methods and resources
+    seconds_to_crack = 2 ** entropy
+    days_to_crack = seconds_to_crack / (24 * 3600)
+    hours_to_crack = (seconds_to_crack % (24 * 3600)) / 3600
+    minutes_to_crack = (seconds_to_crack % 3600) / 60
+    seconds_remainder = seconds_to_crack % 60
+
+    return (
+        f"{int(days_to_crack)} days, "
+        f"{int(hours_to_crack)} hours, "
+        f"{int(minutes_to_crack)} minutes, "
+        f"{int(seconds_remainder)} seconds"
+    )
+
 def check_pwd():
-    password = getpass.getpass("Enter Password: ")
+    password = entry_password.get()
     strength = 0
     remarks = ''
     lower_count = upper_count = num_count = wspace_count = special_count = 0
@@ -45,7 +72,7 @@ def check_pwd():
         strength += 1
     if special_count >= 1:
         strength += 1
-
+    
     if strength == 1:
         remarks = "Very Bad Password !! Change ASAP"
     elif strength == 2:
@@ -57,39 +84,57 @@ def check_pwd():
     elif strength == 5:
         remarks = "Very Strong Password"
 
-    print('Your password has: ')
-    print(f"{lower_count} Lowercase characters")
-    print(f"{upper_count} Uppercase characters")
-    print(f"{num_count} Numeric characters")
-    print(f"{wspace_count} Whitespace characters")
-    print(f"{special_count} Special characters")
+    result_text.set(f"Password strength: {remarks}\nHint: {remarks}")
 
-    print(f"Password strength: {strength}")
-    print(f"Hint: {remarks}")
+    # Display password statistics
+    result_text.set(result_text.get() +
+                   f"\nYour password has:\n"
+                   f"{lower_count} Lowercase characters\n"
+                   f"{upper_count} Uppercase characters\n"
+                   f"{num_count} Numeric characters\n"
+                   f"{wspace_count} Whitespace characters\n"
+                   f"{special_count} Special characters")
 
-    # Suggest a password if the entered password is not strong
-    if strength < 4:
-        suggested_password = generate_suggested_password()
-        print(f"Suggested password: {suggested_password}")
+    # Calculate and display estimated time to crack
+    entropy = calculate_entropy(password)
+    crack_time = calculate_crack_time(entropy)
+    result_text.set(result_text.get() +
+                   f"\nPassword entropy: {entropy:.2f}\n"
+                   f"Estimated time to crack: {crack_time}")
 
-def ask_pwd(another_pwd=False):
-    valid = False
-    if another_pwd:
-        choice = input('Do you want to enter another pwd (y/n): ')
-    else:
-        choice = input('Do you want to check pwd strength (y/n): ')
+    # Show or hide the "Generate Suggested Password" button based on password strength
+    suggested_button.grid(row=2, column=0, columnspan=3, sticky=tk.W)
+    if strength >= 4:
+        suggested_button.grid_forget()
 
-    while not valid:
-        if choice.lower() == 'y':
-            return True
-        elif choice.lower() == 'n':
-            return False
-        else:
-            print('Invalid, Try Again')
+def on_suggested_button():
+    suggested_password = generate_suggested_password()
+    result_text.set(result_text.get() + f"\nSuggested password: {suggested_password}")
 
-if __name__ == '__main__':
-    print("+++ welcome to PWD checker +++")
-    ask_pw = ask_pwd()
-    while ask_pw:
-        check_pwd()
-        ask_pw = ask_pwd(True)
+def on_submit():
+    check_pwd()
+
+# GUI setup
+root = tk.Tk()
+root.title("Password Strength Checker")
+root.geometry("500x300")  # Set the initial window size
+
+frame = ttk.Frame(root, padding="10")
+frame.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+label_password = ttk.Label(frame, text="Enter Password:")
+label_password.grid(column=0, row=0, sticky=tk.W)
+
+entry_password = ttk.Entry(frame, show="*")
+entry_password.grid(column=1, row=0, sticky=(tk.W, tk.E))
+
+button_submit = ttk.Button(frame, text="Check Password", command=on_submit)
+button_submit.grid(column=2, row=0, sticky=tk.W)
+
+result_text = tk.StringVar()
+label_result = ttk.Label(frame, textvariable=result_text, wraplength=400, justify=tk.LEFT)
+label_result.grid(column=0, row=1, columnspan=3, sticky=(tk.W, tk.E))
+
+suggested_button = ttk.Button(frame, text="Generate Suggested Password", command=on_suggested_button)
+
+root.mainloop()
