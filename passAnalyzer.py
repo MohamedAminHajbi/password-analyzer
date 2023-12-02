@@ -1,18 +1,34 @@
 import string
 import getpass
+import requests
 import random
 import math
 import tkinter as tk
+import hashlib
 from tkinter import ttk
 
+def check_pwned_api(password):
+    # Hash the password using SHA-1
+    hashed_password = hashlib.sha1(password.encode()).hexdigest().upper()
+    hash_prefix, hash_suffix = hashed_password[:5], hashed_password[5:]
+
+    # Make a request to the HIBP API
+    response = requests.get(f"https://api.pwnedpasswords.com/range/{hash_prefix}")
+
+    if response.status_code == 200:
+        # Check if the password hash suffix is present in the response
+        pwned_hashes = [line.split(':')[0] for line in response.text.splitlines()]
+        return hash_suffix in pwned_hashes
+
+    return False
+
+
 def generate_suggested_password():
-    # Define character sets for password generation
     lowercase_chars = string.ascii_lowercase
     uppercase_chars = string.ascii_uppercase
     digits_chars = string.digits
     special_chars = string.punctuation
 
-    # Generate a random password with a mix of characters
     suggested_password = (
         random.choice(lowercase_chars) +
         random.choice(uppercase_chars) +
@@ -24,7 +40,6 @@ def generate_suggested_password():
     return suggested_password
 
 def calculate_entropy(password):
-    # Calculate entropy based on the number of possible characters and the length of the password
     possible_characters = 0
     for char_set in [string.ascii_lowercase, string.ascii_uppercase, string.digits, string.punctuation]:
         possible_characters += len(set(password) & set(char_set))
@@ -32,15 +47,12 @@ def calculate_entropy(password):
     return entropy
 
 def calculate_crack_time(entropy):
-    # Calculate an estimate of the time to crack based on the password entropy
-    # This is a rough estimation and can vary based on attacker's methods and resources
     seconds_to_crack = 2 ** entropy
     minutes_to_crack = seconds_to_crack / 60
     hours_to_crack = minutes_to_crack / 60
     days_to_crack = hours_to_crack / 24
     years_to_crack = days_to_crack / 365
 
-    # Extract remaining seconds after converting larger units
     remaining_seconds = seconds_to_crack % 60
     remaining_minutes = minutes_to_crack % 60
     remaining_hours = hours_to_crack % 24
@@ -89,10 +101,13 @@ def check_pwd():
         remarks = "It's A Hard Password, but can be better"
     elif strength == 5:
         remarks = "Very Strong Password"
-
+    
+    if check_pwned_api(password):
+        result_label.config(text=f"Warning: Password '{password}' has been exposed in previous data breaches!", fg="red")
+    else:
+        result_label.config(text="Success: The password is secure.", fg="green")
     result_text.set(f"Password strength: {remarks}\nHint: {remarks}")
 
-    # Display password statistics
     result_text.set(result_text.get() +
                    f"\nYour password has:\n"
                    f"{lower_count} Lowercase characters\n"
@@ -101,14 +116,12 @@ def check_pwd():
                    f"{wspace_count} Whitespace characters\n"
                    f"{special_count} Special characters")
 
-    # Calculate and display estimated time to crack
     entropy = calculate_entropy(password)
     crack_time = calculate_crack_time(entropy)
     result_text.set(result_text.get() +
                    f"\nPassword entropy: {entropy:.2f}\n"
                    f"Estimated time to crack: {crack_time}")
 
-    # Show or hide the "Generate Suggested Password" button based on password strength
     suggested_button.grid(row=2, column=0, columnspan=3, sticky=tk.W)
     if strength >= 4:
         suggested_button.grid_forget()
@@ -120,26 +133,33 @@ def on_suggested_button():
 def on_submit():
     check_pwd()
 
-# GUI setup
 root = tk.Tk()
 root.title("Password Strength Checker")
-root.geometry("500x300")  # Set the initial window size
+root.geometry("750x500")
 
-frame = ttk.Frame(root, padding="10")
+style = ttk.Style()
+
+frame = ttk.Frame(root, padding="10")  # Increase the padding for the frame
 frame.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-label_password = ttk.Label(frame, text="Enter Password:")
-label_password.grid(column=0, row=0, sticky=tk.W)
+label_password = ttk.Label(frame, text="Enter Password:", font=("Roboto", 20, "bold"))
+label_password.grid(column=0, row=0, sticky=tk.W, padx=20)
 
 entry_password = ttk.Entry(frame, show="*")
 entry_password.grid(column=1, row=0, sticky=(tk.W, tk.E))
 
-button_submit = ttk.Button(frame, text="Check Password", command=on_submit)
-button_submit.grid(column=2, row=0, sticky=tk.W)
+style.configure("Custom.TButton", font=("Helvetica", 12, "bold"), foreground="white", background="#45b592", padding=10)
+
+button_submit = ttk.Button(frame, text="Check Password", command=on_submit, style="Custom.TButton")  # Use the default style
+button_submit.grid(column=2, row=0, sticky=tk.W, padx=20)
+
 
 result_text = tk.StringVar()
 label_result = ttk.Label(frame, textvariable=result_text, wraplength=400, justify=tk.LEFT)
 label_result.grid(column=0, row=1, columnspan=3, sticky=(tk.W, tk.E))
+
+result_label = tk.Label(root, text="")
+result_label.grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=10)
 
 suggested_button = ttk.Button(frame, text="Generate Suggested Password", command=on_suggested_button)
 
